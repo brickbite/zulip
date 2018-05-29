@@ -1,5 +1,12 @@
 set_global('page_params', {
-    alert_words: ['alertone', 'alerttwo', 'alertthree', 'al*rt.*s', '.+', 'emoji'],
+    alert_words: [
+        'alertone', 'alerttwo', 'alertthree', 'al*rt.*s', '.+', 'emoji',
+        'quick fox', 'quick',
+        'lazy', 'lazy dog',
+        'cat jumped', 'jumped over',
+        'fast tortoise',
+        'Tester von Tester',
+    ],
 });
 
 set_global('feature_flags', {
@@ -75,6 +82,42 @@ const message_with_emoji = {
     alerted: true,
 };
 
+const superstring_then_substring_message = {
+    sender_email: 'another@zulip.com',
+    content: '<p>the quick fox did something</p>',
+    alerted: true,
+};
+
+const substring_then_superstring_message = {
+    sender_email: 'another@zulip.com',
+    content: '<p>the lazy dog</p>',
+    alerted: true,
+};
+
+const partially_overlapping_message = {
+    sender_email: 'another@zulip.com',
+    content: '<p>cat jumped over</p>',
+    alerted: true,
+};
+
+const one_space_separated_message = {
+    sender_email: 'another@zulip.com',
+    content: '<p>fast tortoise fast tortoise fast tortoise</p>',
+    alerted: true,
+};
+
+const two_space_separated_message = {
+    sender_email: 'another@zulip.com',
+    content: '<p>fast tortoise  fast tortoise  fast tortoise</p>',
+    alerted: true,
+};
+
+const alert_and_mention_message = {
+    sender_email: 'another@zulip.com',
+    content: '<p>hey <span class="user-mention user-mention-me" data-user-id="42">@Tester von Tester</span> is Tester von Tester</p>',
+    alerted: true,
+};
+
 run_test('notifications', () => {
     assert(!alert_words.notifies(regular_message));
     assert(!alert_words.notifies(own_message));
@@ -102,13 +145,13 @@ run_test('munging', () => {
     assert.equal(caps_message.content, "<p>another <span class='alert-word'>ALERTtwo</span> message</p>");
 
     alert_words.process_message(multialert_message);
-    assert.equal(multialert_message.content, "<p>another alertthreemessage <span class='alert-word'>alertone</span> and then <span class='alert-word'>alerttwo</span></p>");
+    assert.equal(multialert_message.content, "<p>another <span class='alert-word'>alertthree</span>message <span class='alert-word'>alertone</span> and then <span class='alert-word'>alerttwo</span></p>");
 
     alert_words.process_message(unsafe_word_message);
     assert.equal(unsafe_word_message.content, "<p>gotta <span class='alert-word'>al*rt.*s</span> all</p>");
 
     alert_words.process_message(alert_in_url_message);
-    assert.equal(alert_in_url_message.content, "<p>http://www.google.com/alertone/me</p>");
+    assert.equal(alert_in_url_message.content, "<p>http://www.google.com/<span class='alert-word'>alertone</span>/me</p>");
 
     alert_words.process_message(question_word_message);
     assert.equal(question_word_message.content, "<p>still <span class='alert-word'>alertone</span>? me</p>");
@@ -118,4 +161,22 @@ run_test('munging', () => {
 
     alert_words.process_message(message_with_emoji);
     assert.equal(message_with_emoji.content, `<p>I <img alt=":heart:" class="emoji" src="/static/generated/emoji/images/emoji/unicode/2764.png" title="heart"> <span class='alert-word'>emoji</span>!</p>`);
+
+    alert_words.process_message(superstring_then_substring_message);
+    assert.equal(superstring_then_substring_message.content, "<p>the <span class='alert-word'>quick fox</span> did something</p>");
+
+    alert_words.process_message(substring_then_superstring_message);
+    assert.equal(substring_then_superstring_message.content, "<p>the <span class='alert-word'>lazy</span> dog</p>");
+
+    alert_words.process_message(partially_overlapping_message);
+    assert.equal(partially_overlapping_message.content, "<p><span class='alert-word'>cat jumped</span> over</p>");
+
+    alert_words.process_message(one_space_separated_message);
+    assert.equal(one_space_separated_message.content, "<p><span class='alert-word'>fast tortoise</span> <span class='alert-word'>fast tortoise</span> <span class='alert-word'>fast tortoise</span></p>");
+
+    alert_words.process_message(two_space_separated_message);
+    assert.equal(two_space_separated_message.content, "<p><span class='alert-word'>fast tortoise</span>  <span class='alert-word'>fast tortoise</span>  <span class='alert-word'>fast tortoise</span></p>");
+
+    alert_words.process_message(alert_and_mention_message);
+    assert.equal(alert_and_mention_message.content, `<p>hey <span class="user-mention user-mention-me" data-user-id="42">@Tester von Tester</span> is <span class='alert-word'>Tester von Tester</span></p>`);
 });
